@@ -47,10 +47,6 @@ const writeContacts = (contacts) => {
   });
 };
 
-app.get("/", (req, res) => {
-  res.render("home", { title: "Home" });
-});
-
 app.get("/contact", async (req, res) => {
   try {
     const contacts = await readContacts();
@@ -64,7 +60,26 @@ app.get("/contact", async (req, res) => {
   }
 });
 
-app.post("/contact/addContact", async (req, res) => {
+// Validation middleware
+const contactValidation = [
+  body("fullName").notEmpty().withMessage("Full name is required."),
+  body("email").isEmail().withMessage("Invalid email address."),
+  body("phoneNumber")
+    .matches(
+      /^(\+?62|0)8(1[123456789]|2[1238]|3[1238]|5[12356789]|7[78]|9[56789]|8[123456789])([\s?|\d]{5,11})$/
+    )
+    .withMessage("Invalid phone number."),
+];
+
+app.post("/contact/addContact", contactValidation, async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    const alert = errors
+      .array()
+      .map((err) => err.msg)
+      .join(", "); // Collect errors
+    return res.redirect(`/contact?alert=${encodeURIComponent(alert)}`); // Redirect with alert
+  }
   const { fullName, phoneNumber, email } = req.body;
   try {
     const contacts = await readContacts();
@@ -72,7 +87,7 @@ app.post("/contact/addContact", async (req, res) => {
     await writeContacts(contacts);
     res.redirect("/contact");
   } catch (err) {
-    res.render("contact", {
+    res.render("contact/contact", {
       title: "Contact",
       contacts: null,
       error: "Error saving contact",
@@ -80,7 +95,16 @@ app.post("/contact/addContact", async (req, res) => {
   }
 });
 
-app.post("/contact/updateContact", async (req, res) => {
+app.post("/contact/updateContact", contactValidation, async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    const alert = errors
+      .array()
+      .map((err) => err.msg)
+      .join(", "); // Collect errors
+    return res.redirect(`/contact?alert=${encodeURIComponent(alert)}`); // Redirect with alert
+  }
+
   const { id, fullName, phoneNumber, email } = req.body;
   try {
     const contacts = await readContacts();
@@ -88,7 +112,7 @@ app.post("/contact/updateContact", async (req, res) => {
     await writeContacts(contacts);
     res.redirect("/contact");
   } catch (err) {
-    res.render("contact", {
+    res.render("contact/contact", {
       title: "Contact",
       contacts: null,
       error: "Error updating contact",
@@ -110,6 +134,10 @@ app.post("/contact/deleteContact", async (req, res) => {
       error: "Error deleting contact",
     });
   }
+});
+
+app.get("/", (req, res) => {
+  res.render("home", { title: "Home" });
 });
 
 app.get("/about", (req, res) => {
